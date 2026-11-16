@@ -21,7 +21,8 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use('/auth', require('./routes/authRoutes'));
 app.use('/regioes', require('./routes/regiaoRoutes'));
-app.use('/usuarios', require('./routes/usuarioRoutes'))
+app.use('/usuarios', require('./routes/usuarioRoutes'));
+app.use('/notificacoes', require('./routes/notificacaoRoutes'));
 
 app.use((req, res) => res.status(404).json({ erro: 'Rota não encontrada.' }));
 

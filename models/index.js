@@ -9,9 +9,32 @@ const env = process.env.NODE_ENV || 'development';
 const config = require(__dirname + '/../config/config')[env];
 const db = {};
 
+if (!config) {
+  throw new Error(`Configuração de banco inexistente para NODE_ENV="${env}".`);
+}
+
+if (!config.use_env_variable) {
+  const missingVariables = [
+    ['DB_HOST', 'MYSQLHOST', config.host],
+    ['DB_USERNAME', 'MYSQLUSER', config.username],
+    ['DB_PASSWORD', 'MYSQLPASSWORD', config.password],
+    ['DB_NAME', 'MYSQLDATABASE', config.database],
+  ]
+    .filter(([, , value]) => !value)
+    .map(([primary, railway]) => `${primary} (ou ${railway})`);
+
+  if (missingVariables.length > 0) {
+    throw new Error(`Variáveis de banco ausentes: ${missingVariables.join(', ')}.`);
+  }
+}
+
 let sequelize;
 if (config.use_env_variable) {
-  sequelize = new Sequelize(process.env[config.use_env_variable], config);
+  const connectionUrl = process.env[config.use_env_variable];
+  if (!connectionUrl) {
+    throw new Error(`A variável ${config.use_env_variable} está vazia.`);
+  }
+  sequelize = new Sequelize(connectionUrl, config);
 } else {
   sequelize = new Sequelize(config.database, config.username, config.password, config);
 }

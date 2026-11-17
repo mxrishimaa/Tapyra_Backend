@@ -6,6 +6,7 @@ const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
 const db = require('./models');
 const swaggerSpec = require('./config/swagger');
+const { iniciarMonitoramentoAutomatico } = require('./services/monitoramentoService');
 
 if (!process.env.JWT_SECRET) {
   console.error('Defina JWT_SECRET no .env antes de iniciar.');
@@ -39,7 +40,10 @@ db.sequelize
   .authenticate()
   .then(() => {
     console.log('MySQL conectado');
-    app.listen(PORT, () => console.log(`API em http://localhost:${PORT} (docs em /docs)`));
+    app.listen(PORT, () => {
+      console.log(`API em http://localhost:${PORT} (docs em /docs)`);
+      iniciarMonitoramentoAutomatico();
+    });
   })
   .catch((e) => {
     console.error('Falha ao conectar no banco:', e.message);

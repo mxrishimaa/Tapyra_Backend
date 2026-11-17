@@ -14,7 +14,6 @@ async function enviarViaMeta(telefone, texto, template = 'hello_world', idioma =
     throw new Error('WHATSAPP_PHONE_NUMBER_ID ou WHATSAPP_TOKEN não definidos no .env');
   }
 
-  // Se WHATSAPP_USE_TEXT=true (janela de 24h aberta), envia texto livre; senão envia template
   const payload =
     process.env.WHATSAPP_USE_TEXT === 'true'
       ? {
@@ -52,28 +51,53 @@ async function enviarViaMeta(telefone, texto, template = 'hello_world', idioma =
 }
 
 async function enviarViaZApi(telefone, texto) {
+  const baseUrl = (process.env.ZAPI_SEND_URL || '').replace(/\/+$/, '');
   const instanceId = process.env.ZAPI_INSTANCE_ID;
   const token = process.env.ZAPI_TOKEN;
-  const clientToken = process.env.ZAPI_CLIENT_TOKEN; // opcional, caso ative na Z-API
+  const clientToken = process.env.ZAPI_CLIENT_TOKEN;
 
-  if (!instanceId || !token) {
-    throw new Error('ZAPI_INSTANCE_ID ou ZAPI_TOKEN não definidos no .env');
+  const isOmni = baseUrl.includes('omni.z-api.io');
+
+  let urlFinal;
+  if (baseUrl) {
+    // Remove /hermitage caso tenha vindo copiado da URL base do painel
+    const urlLimpa = isOmni ? baseUrl.replace('/hermitage/', '/') : baseUrl;
+    urlFinal = isOmni && !urlLimpa.endsWith('/messages') ? `${urlLimpa}/messages` : urlLimpa;
+  } else if (instanceId && token) {
+    urlFinal = `https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`;
+  } else {
+    throw new Error('Defina ZAPI_SEND_URL (ou ZAPI_INSTANCE_ID e ZAPI_TOKEN) no .env');
   }
 
   const headers = { 'Content-Type': 'application/json' };
-  if (clientToken) headers['Client-Token'] = clientToken;
+  if (isOmni && token) {
+    headers.Authorization = `Bearer ${token}`;
+  } else if (clientToken) {
+    headers['Client-Token'] = clientToken;
+  }
 
-  const res = await fetch(
-    `https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`,
-    {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
+  const bodyPayload = isOmni
+    ? {
+        recipient: {
+          identifier: telefone,
+        },
+        content: {
+          type: 'TEXT',
+          body: {
+            message: texto,
+          },
+        },
+      }
+    : {
         phone: telefone,
         message: texto,
-      }),
-    }
-  );
+      };  
+
+  const res = await fetch(urlFinal, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(bodyPayload),
+  });
 
   const data = await res.json();
   if (!res.ok) {
@@ -81,17 +105,20 @@ async function enviarViaZApi(telefone, texto) {
     throw new Error(data.error || data.message || `Z-API HTTP ${res.status}`);
   }
 
-  return { provedor: 'zapi', messageId: data.zapiMessageId || data.messageId, raw: data };
+  return { provedor: 'zapi', messageId: data.id || data.messageId || data.zapiMessageId, raw: data };
 }
 
 async function enviarAlertaWhatsApp({ telefone, nome, nivel, regiao, mensagem }) {
   const destino = normalizarTelefone(telefone);
   const texto =
-    `🔥 *Alerta Tapyra (${nivel || 'Atenção'})*\n` +
-    `Olá, ${nome || 'morador'}!\n` +
-    `*Região:* ${regiao || 'Amazonas'}\n` +
-    `${mensagem}\n\n` +
-    `_Emergência: Bombeiros 193 · Defesa Civil 199_`;
+    `🚨 *TAPYRA · ALERTA DE QUEIMADA (${(nivel || 'ATENÇÃO').toUpperCase()})*\n\n` +
+    `Olá, *${nome || 'morador'}*.\n` +
+    `Detectamos risco ambiental próximo à sua área monitorada:\n\n` +
+    `📍 *Região:* ${regiao || 'Amazonas'}\n` +
+    `📋 *Detalhes:* ${mensagem}\n\n` +
+    `⚠️ *Recomendações:* Evite áreas de fumaça densa e siga as orientações das autoridades locais.\n` +
+    `📞 *Emergência:* Bombeiros *193* | Defesa Civil *199*\n\n` +
+    `_Mensagem automática enviada pelo Sistema Tapyra._`;
 
   const provider = (process.env.WHATSAPP_PROVIDER || 'meta').toLowerCase();
 

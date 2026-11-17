@@ -6,7 +6,7 @@ module.exports = (sequelize, DataTypes) => {
     {
       id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
       usuario_id: { type: DataTypes.INTEGER, allowNull: false },
-      alerta_fogo_id: { type: DataTypes.INTEGER, allowNull: false },
+      alerta_fogo_id: { type: DataTypes.INTEGER, allowNull: true },
       canal: {
         type: DataTypes.ENUM('whatsapp', 'telegram', 'sms', 'email'),
         allowNull: false,

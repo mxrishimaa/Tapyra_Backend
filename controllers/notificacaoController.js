@@ -31,9 +31,12 @@ exports.notificarUsuario = async (req, res) => {
     try {
       await Notificacao.create({
         usuario_id: usuario.id,
-        mensagem,
-        nivel: nivel || 'Atenção',
-        enviado_em: new Date(),
+        alerta_fogo_id: null,
+        canal: 'whatsapp',
+        status: 'enviada',
+        data_envio: new Date(),
+        wa_message_id: resultado?.messaId || null,
+        erro: null
       });
     } catch (e) {
       console.warn('[Notificacao] Aviso ao salvar histórico no banco:', e.message);

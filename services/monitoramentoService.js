@@ -14,8 +14,9 @@ async function buscarFocosCriticosAmazonas() {
     return [];
   }
 
-  // Bounding box aproximado do Amazonas: oeste,sul,leste,norte (-74,-10,-56,3)
+  // Bounding box aproximado do Amazonas: oeste, sul, leste, norte (-74, -10, -56, 3)
   const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${mapKey}/VIIRS_SNPP_NRT/-74,-10,-56,3/1`;
+  
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`NASA FIRMS HTTP ${res.status}`);
@@ -34,6 +35,7 @@ async function buscarFocosCriticosAmazonas() {
   const idxTime = cabecalho.indexOf('acq_time');
 
   const criticos = [];
+
   for (let i = 1; i < linhas.length; i++) {
     const cols = linhas[i].split(',');
     const lat = parseFloat(cols[idxLat]);
@@ -74,9 +76,13 @@ async function verificarEDispararAlertas() {
 
     // Pega o foco mais intenso do ciclo para não disparar dezenas de mensagens de uma vez
     const focoPrincipal = focos.sort((a, b) => b.frp - a.frp)[0];
+    
+    // Marca todos os focos deste ciclo como notificados
     focos.forEach((f) => focosNotificados.add(f.chave));
 
-    console.log(`[Monitoramento] Disparando alerta automático (${focoPrincipal.nivel}) para ${inscritos.length} inscrito(s)...`);
+    console.log(
+      `[Monitoramento] Disparando alerta automático (${focoPrincipal.nivel}) para ${inscritos.length} inscrito(s)...`
+    );
 
     for (const usuario of inscritos) {
       try {
@@ -89,15 +95,25 @@ async function verificarEDispararAlertas() {
         });
 
         if (Notificacao) {
-          await Notificacao.create({
-            usuario_id: usuario.id,
-            mensagem: focoPrincipal.mensagem,
-            nivel: focoPrincipal.nivel,
-            enviado_em: new Date(),
-          }).catch(() => {});
+          try {
+            await Notificacao.create({
+              usuario_id: usuario.id,
+              alerta_fogo_id: null,
+              canal: 'whatsapp',
+              status: 'enviada',
+              data_envio: new Date(),
+              wa_message_id: null,
+              erro: null,
+            });
+          } catch (e) {
+            console.warn('[Notificacao] Falha ao salvar histórico:', e.message);
+          }
         }
       } catch (err) {
-        console.error(`[Monitoramento] Falha ao enviar para ${usuario.nome}:`, err.message);
+        console.error(
+          `[Monitoramento] Erro ao enviar alerta para ${usuario.telefone}:`,
+          err.message
+        );
       }
     }
   } catch (err) {
@@ -106,9 +122,12 @@ async function verificarEDispararAlertas() {
 }
 
 function iniciarMonitoramentoAutomatico() {
-  // Roda a cada 15 minutos automaticamente
+  // Roda a cada 15 minutos
   cron.schedule('*/15 * * * *', verificarEDispararAlertas);
   console.log('Monitoramento automático de focos ativo (intervalo: 15 min)');
 }
 
-module.exports = { iniciarMonitoramentoAutomatico, verificarEDispararAlertas };
+module.exports = {
+  iniciarMonitoramentoAutomatico,
+  verificarEDispararAlertas,
+};

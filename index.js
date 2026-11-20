@@ -13,9 +13,27 @@ if (!process.env.JWT_SECRET) {
   process.exit(1);
 }
 
-const app = express();
 
-app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173' }));
+const app = express();
+const allowedOrigins = (
+  process.env.FRONTEND_URLS ||
+  process.env.FRONTEND_URL ||
+  'http://localhost:5173'
+)
+  .split(',')
+  .map((s) => s.trim().replace(/\/$/, '')) // remove / no final
+  .filter(Boolean);
+
+app.use( cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+      return callback(new Error('Not allowed by CORS'));
+        },
+  })
+);
+
 app.use(express.json());
 
 app.get('/health', (req, res) => res.json({ ok: true }));
@@ -33,6 +51,7 @@ app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ erro: 'Erro interno do servidor.' });
 });
+
 
 const PORT = process.env.PORT || 3000;
 

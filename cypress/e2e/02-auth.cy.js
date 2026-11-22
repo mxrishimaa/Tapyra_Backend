@@ -3,6 +3,9 @@ describe('02 - Autenticação', () => {
   const senha = 'senha12345'
   const nome = 'Usuario Cypress API'
 
+  // guarda o token entre os its deste describe
+  let token
+
   it('deve cadastrar um novo usuário', () => {
     cy.request({
       method: 'POST',
@@ -11,7 +14,7 @@ describe('02 - Autenticação', () => {
         nome,
         email,
         senha,
-        telefone: '9299990000',
+        telefone: '92999990000',
         aceitaWhatsapp: false,
       },
     }).then((res) => {
@@ -29,18 +32,22 @@ describe('02 - Autenticação', () => {
     }).then((res) => {
       expect(res.status).to.eq(200)
       expect(res.body.token).to.be.a('string')
-      Cypress.env('token', res.body.token)
+      token = res.body.token // em vez de Cypress.env('token', ...)
     })
   })
 
   it('GET /auth/me com token deve retornar o usuário', () => {
-    cy.request({
-      method: 'GET',
-      url: '/auth/me',
-      headers: { Authorization: `Bearer ${Cypress.env('token')}` },
-    }).then((res) => {
-      expect(res.status).to.eq(200)
-      expect(res.body.usuario || res.body).to.exist
+    cy.then(() => {
+      expect(token, 'token do login anterior').to.be.a('string')
+
+      cy.request({
+        method: 'GET',
+        url: '/auth/me',
+        headers: { Authorization: `Bearer ${token}` },
+      }).then((res) => {
+        expect(res.status).to.eq(200)
+        expect(res.body.usuario || res.body).to.exist
+      })
     })
   })
 

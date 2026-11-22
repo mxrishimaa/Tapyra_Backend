@@ -1,5 +1,6 @@
 'use strict';
 
+const bcrypt = require('bcrypt');
 const { Usuario } = require('../models');
 const { normalizarTelefone } = require('../utils/telefone');
 const { usuarioPublico } = require('../utils/usuarioPublico');
@@ -41,4 +42,32 @@ exports.consentimentoWhatsapp = async (req, res) => {
   });
 
   res.json({ usuario: usuarioPublico(usuario) });
+};
+
+// PATCH /usuarios/me/senha  { senhaAtual, novaSenha }
+exports.alterarSenha = async (req, res) => {
+  const { senhaAtual, novaSenha } = req.body ?? {};
+
+  if (typeof senhaAtual !== 'string' || !senhaAtual || typeof novaSenha !== 'string' || !novaSenha) {
+    return res.status(400).json({ erro: 'Informe a senha atual e a nova senha.' });
+  }
+
+  if (novaSenha.length < 8 || Buffer.byteLength(novaSenha) > 72) {
+    return res.status(400).json({ erro: 'A nova senha deve ter entre 8 e 72 caracteres.' });
+  }
+
+  const usuario = await Usuario.scope('comSenha').findByPk(req.usuario.id);
+  if (!usuario) {
+    return res.status(404).json({ erro: 'Usuário não encontrado.' });
+  }
+
+  const senhaConfere = await bcrypt.compare(senhaAtual, usuario.senha);
+  if (!senhaConfere) {
+    return res.status(401).json({ erro: 'A senha atual está incorreta.' });
+  }
+
+  const novaSenhaHash = await bcrypt.hash(novaSenha, 10);
+  await usuario.update({ senha: novaSenhaHash });
+
+  res.json({ mensagem: 'Senha alterada com sucesso.' });
 };

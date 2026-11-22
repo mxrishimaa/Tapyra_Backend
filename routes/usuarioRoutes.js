@@ -27,5 +27,6 @@ const ctrl = require('../controllers/usuarioController');
  *       400: { description: Dados inválidos }
  */
 router.patch('/me/whatsapp', autenticar, ctrl.consentimentoWhatsapp);
+router.patch('/me/senha', autenticar, ctrl.alterarSenha);
 
 module.exports = router;
